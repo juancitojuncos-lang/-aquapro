@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AquaPro</title>
+
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial,sans-serif;background:#f4f7fb;color:#172033}
+button{border:0;border-radius:9px;padding:11px 15px;font-weight:bold;cursor:pointer}
+.primary{background:#1687d9;color:white}
+.secondary{background:#e8f2fa;color:#176ca8}
+.sidebar{position:fixed;left:0;top:0;bottom:0;width:230px;background:#101827;color:white;padding:20px 12px}
+.logo{font-size:24px;font-weight:bold;padding:10px;margin-bottom:25px}
+.logo span{color:#29a9ed}
+.menu button{display:block;width:100%;background:none;color:#bfc9d8;text-align:left;margin:5px 0}
+.menu button:hover,.menu button.active{background:#1d2a40;color:white}
+.main{margin-left:230px;padding:25px}
+.header{display:flex;justify-content:space-between;align-items:center;margin-bottom:22px}
+.header h1{margin:0}
+.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:15px}
+.card,.box{background:white;border:1px solid #e2e8f0;border-radius:14px;padding:18px;margin-bottom:18px}
+.number{font-size:27px;font-weight:bold;margin-top:8px}
+.muted{color:#748197;font-size:13px}
+table{width:100%;background:white;border-collapse:collapse;border-radius:12px;overflow:hidden}
+th,td{text-align:left;padding:14px;border-bottom:1px solid #edf0f4}
+th{font-size:12px;color:#748197}
+.status{background:#e7f7ee;color:#19834b;border-radius:20px;padding:5px 9px;font-size:12px}
+.row{display:flex;justify-content:space-between;align-items:center;padding:14px 0;border-bottom:1px solid #edf0f4}
+.modal-bg{display:none;position:fixed;inset:0;background:#0008;align-items:center;justify-content:center;padding:20px}
+.modal{background:white;border-radius:15px;padding:22px;width:min(500px,100%)}
+.modal input,.modal select{width:100%;padding:11px;margin:6px 0 13px;border:1px solid #ccd6e2;border-radius:8px}
+.modal-actions{text-align:right;margin-top:10px}
+@media(max-width:700px){
+.sidebar{width:65px;padding:12px 6px}
+.logo{font-size:0;text-align:center}
+.logo:first-letter{font-size:25px}
+.menu button{font-size:0;text-align:center;padding:13px}
+.menu button:first-letter{font-size:20px}
+.main{margin-left:65px;padding:15px}
+.cards{grid-template-columns:repeat(2,1fr)}
+.header h1{font-size:22px}
+table{font-size:13px}
+}
+</style>
+</head>
+
+<body>
+
+<aside class="sidebar">
+<div class="logo">🚗 Aqua<span>Pro</span></div>
+
+<div class="menu">
+<button class="active" onclick="show('inicio',this)">🏠 Inicio</button>
+<button onclick="show('clientes',this)">👥 Clientes</button>
+<button onclick="show('vehiculos',this)">🚗 Vehículos</button>
+<button onclick="show('turnos',this)">📅 Turnos</button>
+<button onclick="show('ordenes',this)">🧾 Órdenes</button>
+<button onclick="show('caja',this)">💰 Caja</button>
+<button onclick="show('config',this)">⚙️ Configuración</button>
+</div>
+</aside>
+
+<main class="main" id="app"></main>
+
+<div class="modal-bg" id="modalBg">
+<div class="modal" id="modal"></div>
+</div>
+
+<script>
+
+let clientes=[
+ {nombre:"Juan Pérez",telefono:"351 555-1122",vehiculos:2},
+ {nombre:"María González",telefono:"351 555-3344",vehiculos:1},
+ {nombre:"Carlos López",telefono:"351 555-7788",vehiculos:1}
+];
+
+let vehiculos=[
+ {patente:"AB 123 CD",marca:"Fiat",modelo:"Cronos",dueño:"Juan Pérez"},
+ {patente:"AE 456 FG",marca:"Volkswagen",modelo:"Gol",dueño:"María González"},
+ {patente:"AC 789 HI",marca:"Toyota",modelo:"Etios",dueño:"Carlos López"}
+];
+
+let turnos=[
+ {hora:"09:00",cliente:"Juan Pérez",vehiculo:"Fiat Cronos",servicio:"Lavado Premium",precio:15000},
+ {hora:"10:30",cliente:"María González",vehiculo:"VW Gol",servicio:"Lavado + Interior",precio:18000},
+ {hora:"12:00",cliente:"Carlos López",vehiculo:"Toyota Etios",servicio:"Detailing",precio:45000}
+];
+
+let ordenes=[
+ {numero:152,cliente:"Juan Pérez",vehiculo:"Fiat Cronos",servicio:"Lavado Premium",total:15000,estado:"Terminada"},
+ {numero:151,cliente:"María González",vehiculo:"VW Gol",servicio:"Lavado + Interior",total:18000,estado:"En servicio"}
+];
+
+let ingresos=78000;
+let gastos=17000;
+
+function dinero(n){
+ return "$"+n.toLocaleString("es-AR");
+}
+
+function encabezado(titulo,boton=""){
+ return `
+ <div class="header">
+   <h1>${titulo}</h1>
+   <div>${boton}</div>
+ </div>`;
+}
+
+function show(pagina,boton){
+
+ document.querySelectorAll(".menu button")
+ .forEach(x=>x.classList.remove("active"));
+
+ if(boton) boton.classList.add("active");
+
+ if(pagina==="inicio") inicio();
+ if(pagina==="clientes") clientesPage();
+ if(pagina==="vehiculos") vehiculosPage();
+ if(pagina==="turnos") turnosPage();
+ if(pagina==="ordenes") ordenesPage();
+ if(pagina==="caja") cajaPage();
+ if(pagina==="config") configPage();
+}
+
+
+/* INICIO */
+
+function inicio(){
+
+document.getElementById("app").innerHTML=
+encabezado("Inicio",
+`<button class="primary" onclick="nuevoTurno()">+ Nuevo turno</button>`)+
+
+`
+<div class="cards">
+
+<div class="card">
+<div class="muted">Facturación de hoy</div>
+<div class="number">${dinero(ingresos)}</div>
+</div>
+
+<div class="card">
+<div class="muted">Turnos de hoy</div>
+<div class="number">${turnos.length}</div>
+</div>
+
+<div class="card">
+<div class="muted">Clientes</div>
+<div class="number">${clientes.length}</div>
+</div>
+
+<div class="card">
+<div class="muted">Resultado</div>
+<div class="number">${dinero(ingresos-gastos)}</div>
+</div>
+
+</div>
+
+<div class="box">
+<h3>📅 Turnos de hoy</h3>
+
+${turnos.map(t=>`
+<div class="row">
+<div>
+<b>${t.hora} · ${t.vehiculo}</b>
+<div class="muted">${t.cliente} · ${t.servicio}</div>
+</div>
+<span class="status">Confirmado</span>
+</div>
+`).join("")}
+
+</div>
+
+<div class="box">
+<h3>💰 Resumen de caja</h3>
+
+<div class="row">
+<span>Ingresos</span>
+<b>${dinero(ingresos)}</b>
+</div>
+
+<div class="row">
+<span>Gastos</span>
+<b>${dinero(gastos)}</b>
+</div>
+
+<div class="row">
+<span>Resultado</span>
+<b>${dinero(ingresos-gastos)}</b>
+</div>
+
+</div>
+`;
+}
+
+
+/* CLIENTES */
+
+function clientesPage(){
+
+document.getElementById("app").innerHTML=
+encabezado("Clientes",
+`<button class="primary" onclick="nuevoCliente()">+ Nuevo cliente</button>`)+
+
+`
+<div class="box">
+<table>
+
+<thead>
+<tr>
+<th>Cliente</th>
+<th>WhatsApp</th>
+<th>Vehículos</th>
+<th></th>
+</tr>
+</thead>
+
+<tbody>
+
+${clientes.map(c=>`
+
+<tr>
+<td><b>${c.nombre}</b></td>
+<td>${c.telefono}</td>
+<td>${c.vehiculos}</td>
+<td>
+<button class="secondary"
+onclick="alert('Ficha de ${c.nombre}')">
+Ver
+</button>
+</td>
+</tr>
+
+`).join("")}
+
+</tbody>
+</table>
+</div>
+`;
+}
+
+
+/* VEHICULOS */
+
+function vehiculosPage(){
+
+document.getElementById("app").innerHTML=
+encabezado("Vehículos",
+`<button class="primary" onclick="nuevoVehiculo()">+ Nuevo vehículo</button>`)+
+
+`
+<div class="box">
+<table>
+
+<thead>
+<tr>
+<th>Patente</th>
+<th>Vehículo</th>
+<th>Propietario</th>
+<th></th>
+</tr>
+</thead>
+
+<tbody>
+
+${vehiculos.map(v=>`
+
+<tr>
+<td><b>${v.patente}</b></td>
+<td>${v.marca} ${v.modelo}</td>
+<td>${v.dueño}</td>
+<td>
+<button class="secondary"
+onclick="alert('Historial del vehículo ${v.patente}')">
+Historial
+</button>
+</td>
+</tr>
+
+`).join("")}
+
+</tbody>
+</table>
+</div>
+`;
+}
+
+
+/* TURNOS */
+
+function turnosPage(){
+
+document.getElementById("app").innerHTML=
+encabezado("Turnos",
+`<button class="primary" onclick="nuevoTurno()">+ Nuevo turno</button>`)+
+
+`
+<div class="box">
+
+<h3>📅 Hoy</h3>
+
+${turnos.map((t,i)=>`
+
+<div class="row">
+
+<div>
+<b>${t.hora} · ${t.vehiculo}</b>
+<div class="muted">
+${t.cliente} · ${t.servicio} · ${dinero(t.precio)}
+</div>
+</div>
+
+<button class="secondary"
+onclick="crearOrden(${i})">
+Abrir orden
+</button>
+
+</div>
+
+`).join("")}
+
+</div>
+`;
+}
+
+
+/* ORDENES */
+
+function ordenesPage(){
+
+document.getElementById("app").innerHTML=
+encabezado("Órdenes de trabajo")+
+
+`
+<div class="box">
+
+<table>
+
+<thead>
+<tr>
+<th>Número</th>
+<th>Cliente</th>
+<th>Vehículo</th>
+<th>Servicio</th>
+<th>Total</th>
+<th>Estado</th>
+</tr>
+</thead>
+
+<tbody>
+
+${ordenes.map(o=>`
+
+<tr>
+<td>#${o.numero}</td>
+<td>${o.cliente}</td>
+<td>${o.vehiculo}</td>
+<td>${o.servicio}</td>
+<td>${dinero(o.total)}</td>
+<td><span class="status">${o.estado}</span></td>
+</tr>
+
+`).join("")}
+
+</tbody>
+</table>
+
+</div>
+`;
+}
+
+
+/* CAJA */
+
+function cajaPage(){
+
+document.getElementById("app").innerHTML=
+encabezado("Caja",
+`<button class="primary" onclick="nuevoGasto()">+ Registrar gasto</button>`)+
+
+`
+<div class="cards">
+
+<div class="card">
+<div class="muted">Ingresos</div>
+<div class="number">${dinero(ingresos)}</div>
+</div>
+
+<div class="card">
+<div class="muted">Gastos</div>
+<div class="number">${dinero(gastos)}</div>
+</div>
+
+<div class="card">
+<div class="muted">Resultado</div>
+<div class="number">${dinero(ingresos-gastos)}</div>
+</div>
+
+</div>
+
+<div class="box">
+
+<h3>Movimientos de hoy</h3>
+
+<div class="row">
+<span>Lavado Premium · Juan Pérez</span>
+<b>+ ${dinero(15000)}</b>
+</div>
+
+<div class="row">
+<span>Lavado + Interior · María González</span>
+<b>+ ${dinero(18000)}</b>
+</div>
+
+<div class="row">
+<span>Compra de productos</span>
+<b>- ${dinero(12000)}</b>
+</div>
+
+</div>
+`;
+}
+
+
+/* CONFIG */
+
+function configPage(){
+
+document.getElementById("app").innerHTML=
+encabezado("Configuración")+
+
+`
+<div class="cards">
+
+<div class="card">
+<h3>🏪 Mi negocio</h3>
+<p class="muted">Nombre, dirección y horarios</p>
+</div>
+
+<div class="card">
+<h3>👷 Empleados</h3>
+<p class="muted">Usuarios y permisos</p>
+</div>
+
+<div class="card">
+<h3>🧽 Servicios</h3>
+<p class="muted">Precios y duración</p>
+</div>
+
+<div class="card">
+<h3>📲 WhatsApp</h3>
+<p class="muted">Mensajes automáticos</p>
+</div>
+
+</div>
+`;
+}
+
+
+/* MODAL */
+
+function modal(contenido){
+
+document.getElementById("modal").innerHTML=contenido;
+document.getElementById("modalBg").style.display="flex";
+
+}
+
+function cerrarModal(){
+
+document.getElementById("modalBg").style.display="none";
+
+}
+
+
+/* NUEVO CLIENTE */
+
+function nuevoCliente(){
+
+modal(`
+
+<h2>Nuevo cliente</h2>
+
+<label>Nombre</label>
+<input id="nombreCliente" placeholder="Ej. Juan Pérez">
+
+<label>WhatsApp</label>
+<input id="telefonoCliente" placeholder="Ej. 351 555-5555">
+
+<div class="modal-actions">
+
+<button class="secondary"
+onclick="cerrarModal()">
+Cancelar
+</button>
+
+<button class="primary"
+onclick="guardarCliente()">
+Guardar
+</button>
+
+</div>
+`);
+}
+
+function guardarCliente(){
+
+let nombre=document.getElementById("nombreCliente").value;
+
+if(!nombre){
+alert("Ingresá el nombre");
+return;
+}
+
+clientes.push({
+nombre:nombre,
+telefono:document.getElementById("telefonoCliente").value,
+vehiculos:0
+});
+
+cerrarModal();
+clientesPage();
+
+}
+
+
+/* NUEVO VEHICULO */
+
+function nuevoVehiculo(){
+
+modal(`
+
+<h2>Nuevo vehículo</h2>
+
+<label>Patente</label>
+<input id="patente" placeholder="AB 123 CD">
+
+<label>Marca</label>
+<input id="marca" placeholder="Fiat">
+
+<label>Modelo</label>
+<input id="modelo" placeholder="Cronos">
+
+<label>Propietario</label>
+<input id="dueno" placeholder="Juan Pérez">
+
+<div class="modal-actions">
+
+<button class="secondary"
+onclick="cerrarModal()">
+Cancelar
+</button>
+
+<button class="primary"
+onclick="guardarVehiculo()">
+Guardar
+</button>
+
+</div>
+`);
+}
+
+function guardarVehiculo(){
+
+let patente=document.getElementById("patente").value;
+
+if(!patente){
+alert("Ingresá la patente");
+return;
+}
+
+vehiculos.push({
+patente:patente.toUpperCase(),
+marca:document.getElementById("marca").value,
+modelo:document.getElementById("modelo").value,
+dueño:document.getElementById("dueno").value
+});
+
+cerrarModal();
+vehiculosPage();
+
+}
+
+
+/* NUEVO TURNO */
+
+function nuevoTurno(){
+
+modal(`
+
+<h2>Nuevo turno</h2>
+
+<label>Cliente</label>
+
+<select id="clienteTurno">
+
+${clientes.map(c=>
+`<option>${c.nombre}</option>`
+).join("")}
+
+</select>
+
+<label>Vehículo</label>
+
+<select id="vehiculoTurno">
+
+${vehiculos.map(v=>
+`<option>${v.patente} · ${v.marca} ${v.modelo}</option>`
+).join("")}
+
+</select>
+
+<label>Hora</label>
+<input id="horaTurno" type="time" value="14:00">
+
+<label>Servicio</label>
+
+<select id="servicioTurno">
+
+<option>Lavado Básico</option>
+<option>Lavado Premium</option>
+<option>Lavado + Interior</option>
+<option>Detailing</option>
+
+</select>
+
+<div class="modal-actions">
+
+<button class="secondary"
+onclick="cerrarModal()">
+Cancelar
+</button>
+
+<button class="primary"
+onclick="guardarTurno()">
+Guardar turno
+</button>
+
+</div>
+`);
+}
+
+function guardarTurno(){
+
+turnos.push({
+hora:document.getElementById("horaTurno").value,
+cliente:document.getElementById("clienteTurno").value,
+vehiculo:document.getElementById("vehiculoTurno").value,
+servicio:document.getElementById("servicioTurno").value,
+precio:15000
+});
+
+cerrarModal();
+turnosPage();
+
+}
+
+
+/* CREAR ORDEN */
+
+function crearOrden(i){
+
+let t=turnos[i];
+
+ordenes.unshift({
+numero:153+ordenes.length,
+cliente:t.cliente,
+vehiculo:t.vehiculo,
+servicio:t.servicio,
+total:t.precio,
+estado:"En servicio"
+});
+
+ingresos+=t.precio;
+
+alert("Orden creada correctamente");
+
+ordenesPage();
+
+}
+
+
+/* NUEVO GASTO */
+
+function nuevoGasto(){
+
+modal(`
+
+<h2>Registrar gasto</h2>
+
+<label>Descripción</label>
+<input id="descGasto" placeholder="Ej. Productos de limpieza">
+
+<label>Monto</label>
+<input id="montoGasto" type="number" placeholder="25000">
+
+<div class="modal-actions">
+
+<button class="secondary"
+onclick="cerrarModal()">
+Cancelar
+</button>
+
+<button class="primary"
+onclick="guardarGasto()">
+Guardar
+</button>
+
+</div>
+`);
+}
+
+function guardarGasto(){
+
+let monto=Number(document.getElementById("montoGasto").value);
+
+if(!monto){
+alert("Ingresá el monto");
+return;
+}
+
+gastos+=monto;
+
+cerrarModal();
+cajaPage();
+
+}
+
+
+/* ARRANQUE */
+
+inicio();
+
+</script>
+
+</body>
+</html>
