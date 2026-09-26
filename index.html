@@ -47,6 +47,80 @@ table{font-size:13px}
 </head>
 
 <body>
+ <!-- LOGIN AQUAPRO -->
+<div id="loginScreen" style="
+position:fixed;
+inset:0;
+background:#f4f7fb;
+z-index:9999;
+display:flex;
+align-items:center;
+justify-content:center;
+padding:20px;
+">
+
+<div style="
+background:white;
+width:100%;
+max-width:400px;
+padding:30px;
+border-radius:18px;
+box-shadow:0 10px 40px rgba(0,0,0,.12);
+">
+
+<h1 style="text-align:center;margin-bottom:5px;">
+🚗 Aqua<span style="color:#1687d9">Pro</span>
+</h1>
+
+<p style="text-align:center;color:#748197;margin-bottom:25px;">
+Gestión de lavadero
+</p>
+
+<label style="font-weight:bold;">Email</label>
+
+<input
+id="loginEmail"
+type="email"
+placeholder="tu@email.com"
+style="
+width:100%;
+padding:12px;
+margin:7px 0 15px;
+border:1px solid #ccd6e2;
+border-radius:9px;
+">
+
+<label style="font-weight:bold;">Contraseña</label>
+
+<input
+id="loginPassword"
+type="password"
+placeholder="Tu contraseña"
+style="
+width:100%;
+padding:12px;
+margin:7px 0 18px;
+border:1px solid #ccd6e2;
+border-radius:9px;
+">
+
+<button
+onclick="iniciarSesion()"
+class="primary"
+style="width:100%;padding:13px;">
+Ingresar
+</button>
+
+<p id="loginError"
+style="
+color:#c62828;
+text-align:center;
+font-size:13px;
+margin-top:15px;
+"></p>
+
+</div>
+</div>
 
 <aside class="sidebar">
 <div class="logo">🚗 Aqua<span>Pro</span></div>
@@ -732,7 +806,65 @@ cajaPage();
 /* ARRANQUE */
 
 inicio();
+// ==========================================
+// LOGIN AQUAPRO
+// ==========================================
 
+async function iniciarSesion() {
+
+    const email = document.getElementById("loginEmail").value.trim();
+    const password = document.getElementById("loginPassword").value;
+    const error = document.getElementById("loginError");
+
+    error.textContent = "";
+
+    if (!email || !password) {
+        error.textContent = "Ingresá tu email y contraseña.";
+        return;
+    }
+
+    const { data, error: loginError } =
+        await supabaseClient.auth.signInWithPassword({
+            email: email,
+            password: password
+        });
+
+    if (loginError) {
+        console.error(loginError);
+        error.textContent = "Email o contraseña incorrectos.";
+        return;
+    }
+
+    document.getElementById("loginScreen").style.display = "none";
+
+    inicio();
+}
+
+
+async function comprobarSesion() {
+
+    const { data } = await supabaseClient.auth.getSession();
+
+    if (data.session) {
+        document.getElementById("loginScreen").style.display = "none";
+    } else {
+        document.getElementById("loginScreen").style.display = "flex";
+    }
+}
+
+
+async function cerrarSesion() {
+
+    await supabaseClient.auth.signOut();
+
+    document.getElementById("loginScreen").style.display = "flex";
+
+    document.getElementById("loginPassword").value = "";
+}
+
+
+// Comprobar si ya existe una sesión al abrir AquaPro
+comprobarSesion();
 </script>
 
 </body>
