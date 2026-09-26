@@ -982,9 +982,38 @@ Guardar
 </div>
 `);
 }
-
 async function guardarCliente(){
- async function verCliente(id){
+
+    const nombre =
+        document.getElementById("nombreCliente").value.trim();
+
+    const telefono =
+        document.getElementById("telefonoCliente").value.trim();
+
+    if(!nombre){
+        alert("Ingresá el nombre del cliente.");
+        return;
+    }
+
+    const { error } = await supabaseClient
+        .from("clients")
+        .insert({
+            name: nombre,
+            phone: telefono
+        });
+
+    if(error){
+        console.error(error);
+        alert("No se pudo guardar el cliente: " + error.message);
+        return;
+    }
+
+    cerrarModal();
+    await clientesPage();
+}
+
+
+async function verCliente(id){
 
     const { data: cliente, error } = await supabaseClient
         .from("clients")
@@ -1025,10 +1054,10 @@ async function guardarCliente(){
 
         <p>
             <b>Vehículos:</b>
-            ${cliente.vehicles.length}
+            ${cliente.vehicles ? cliente.vehicles.length : 0}
         </p>
 
-        ${cliente.vehicles.length ? `
+        ${cliente.vehicles && cliente.vehicles.length ? `
             <hr>
 
             ${cliente.vehicles.map(v => `
@@ -1053,52 +1082,6 @@ async function guardarCliente(){
             </button>
         </div>
     `);
-}
-
-    const nombre =
-        document.getElementById("nombreCliente").value.trim();
-
-    const telefono =
-        document.getElementById("telefonoCliente").value.trim();
-
-    if(!nombre){
-        alert("Ingresá el nombre del cliente.");
-        return;
-    }
-
-    const { error } = await supabaseClient
-        .from("clients")
-        .insert({
-            name: nombre,
-            phone: telefono
-        });
-
-    if(error){
-        console.error(error);
-        alert("No se pudo guardar el cliente: " + error.message);
-        return;
-    }
-
-    cerrarModal();
-
-    await clientesPage();
-}
-let nombre=document.getElementById("nombreCliente").value;
-
-if(!nombre){
-alert("Ingresá el nombre");
-return;
-}
-
-clientes.push({
-nombre:nombre,
-telefono:document.getElementById("telefonoCliente").value,
-vehiculos:0
-});
-
-cerrarModal();
-clientesPage();
-
 }
 
 
