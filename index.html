@@ -137,7 +137,78 @@ margin-top:15px;
 </aside>
 
 <main class="main" id="app"></main>
+<!-- CAMBIAR CONTRASEÑA -->
+<div id="recoveryScreen" style="
+position:fixed;
+inset:0;
+background:#f4f7fb;
+z-index:10000;
+display:none;
+align-items:center;
+justify-content:center;
+padding:20px;
+">
 
+<div style="
+background:white;
+width:100%;
+max-width:400px;
+padding:30px;
+border-radius:18px;
+box-shadow:0 10px 40px rgba(0,0,0,.12);
+">
+
+<h1 style="text-align:center;margin-bottom:5px;">
+🚗 Aqua<span style="color:#1687d9">Pro</span>
+</h1>
+
+<h2 style="text-align:center;">Nueva contraseña</h2>
+
+<p style="text-align:center;color:#748197;">
+Elegí la nueva contraseña para tu cuenta.
+</p>
+
+<label style="font-weight:bold;">Nueva contraseña</label>
+
+<input
+id="newPassword"
+type="password"
+placeholder="Mínimo 8 caracteres"
+style="
+width:100%;
+padding:12px;
+margin:7px 0 15px;
+border:1px solid #ccd6e2;
+border-radius:9px;
+">
+
+<label style="font-weight:bold;">Repetir contraseña</label>
+
+<input
+id="repeatPassword"
+type="password"
+placeholder="Repetí la contraseña"
+style="
+width:100%;
+padding:12px;
+margin:7px 0 18px;
+border:1px solid #ccd6e2;
+border-radius:9px;
+">
+
+<button
+onclick="guardarNuevaPassword()"
+class="primary"
+style="width:100%;padding:13px;">
+Guardar nueva contraseña
+</button>
+
+<p id="recoveryMessage"
+style="text-align:center;font-size:13px;margin-top:15px;">
+</p>
+
+</div>
+</div>
 <div class="modal-bg" id="modalBg">
 <div class="modal" id="modal"></div>
 </div>
@@ -863,7 +934,76 @@ async function cerrarSesion() {
 }
 
 
-// Comprobar si ya existe una sesión al abrir AquaPro
+// ==========================================
+// RECUPERACION DE CONTRASEÑA
+// ==========================================
+
+supabaseClient.auth.onAuthStateChange((event, session) => {
+
+    if (event === "PASSWORD_RECOVERY") {
+
+        document.getElementById("loginScreen").style.display = "none";
+
+        document.getElementById("recoveryScreen").style.display = "flex";
+    }
+
+});
+
+
+async function guardarNuevaPassword() {
+
+    const password =
+        document.getElementById("newPassword").value;
+
+    const repeat =
+        document.getElementById("repeatPassword").value;
+
+    const mensaje =
+        document.getElementById("recoveryMessage");
+
+    if (password.length < 8) {
+        mensaje.style.color = "#c62828";
+        mensaje.textContent =
+            "La contraseña debe tener al menos 8 caracteres.";
+        return;
+    }
+
+    if (password !== repeat) {
+        mensaje.style.color = "#c62828";
+        mensaje.textContent =
+            "Las contraseñas no coinciden.";
+        return;
+    }
+
+    const { error } =
+        await supabaseClient.auth.updateUser({
+            password: password
+        });
+
+    if (error) {
+        console.error(error);
+        mensaje.style.color = "#c62828";
+        mensaje.textContent =
+            "No se pudo cambiar la contraseña: " + error.message;
+        return;
+    }
+
+    mensaje.style.color = "#19834b";
+    mensaje.textContent =
+        "Contraseña actualizada correctamente.";
+
+    await supabaseClient.auth.signOut();
+
+    setTimeout(() => {
+
+        document.getElementById("recoveryScreen").style.display = "none";
+
+        document.getElementById("loginScreen").style.display = "flex";
+
+        document.getElementById("loginPassword").value = "";
+
+    }, 1500);
+}// Comprobar si ya existe una sesión al abrir AquaPro
 comprobarSesion();
 </script>
 
