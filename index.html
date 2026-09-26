@@ -229,11 +229,7 @@ style="text-align:center;font-size:13px;margin-top:15px;">
 
 <script>
 
-let clientes=[
- {nombre:"Juan Pérez",telefono:"351 555-1122",vehiculos:2},
- {nombre:"María González",telefono:"351 555-3344",vehiculos:1},
- {nombre:"Carlos López",telefono:"351 555-7788",vehiculos:1}
-];
+let clientes=[];
 
 let vehiculos=[
  {patente:"AB 123 CD",marca:"Fiat",modelo:"Cronos",dueño:"Juan Pérez"},
@@ -357,7 +353,96 @@ ${turnos.map(t=>`
 
 /* CLIENTES */
 
-function clientesPage(){
+ async function clientesPage(){
+
+    document.getElementById("app").innerHTML =
+        encabezado(
+            "Clientes",
+            `<button class="primary" onclick="nuevoCliente()">+ Nuevo cliente</button>`
+        ) +
+        `<div class="box">
+            <p class="muted">Cargando clientes...</p>
+        </div>`;
+
+    const { data, error } = await supabaseClient
+        .from("clients")
+        .select(`
+            id,
+            name,
+            phone,
+            email,
+            notes,
+            vehicles(id)
+        `)
+        .order("name");
+
+    if(error){
+        console.error(error);
+
+        document.getElementById("app").innerHTML =
+            encabezado("Clientes") +
+            `<div class="box">
+                <b>No se pudieron cargar los clientes.</b>
+                <p class="muted">${error.message}</p>
+            </div>`;
+        return;
+    }
+
+    clientes = data.map(c => ({
+        id: c.id,
+        nombre: c.name,
+        telefono: c.phone || "",
+        email: c.email || "",
+        notas: c.notes || "",
+        vehiculos: c.vehicles ? c.vehicles.length : 0
+    }));
+
+    document.getElementById("app").innerHTML =
+        encabezado(
+            "Clientes",
+            `<button class="primary" onclick="nuevoCliente()">+ Nuevo cliente</button>`
+        ) +
+        `
+        <div class="box">
+
+        ${clientes.length === 0 ? `
+            <p class="muted">
+                Todavía no hay clientes. Tocá "+ Nuevo cliente" para cargar el primero.
+            </p>
+        ` : `
+            <table>
+                <thead>
+                    <tr>
+                        <th>Cliente</th>
+                        <th>WhatsApp</th>
+                        <th>Vehículos</th>
+                        <th></th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    ${clientes.map(c => `
+                        <tr>
+                            <td><b>${c.nombre}</b></td>
+                            <td>${c.telefono || "-"}</td>
+                            <td>${c.vehiculos}</td>
+
+                            <td>
+                                <button
+                                    class="secondary"
+                                    onclick="verCliente('${c.id}')">
+                                    Ver
+                                </button>
+                            </td>
+                        </tr>
+                    `).join("")}
+                </tbody>
+            </table>
+        `}
+
+        </div>
+        `;
+}
 
 document.getElementById("app").innerHTML=
 encabezado("Clientes",
@@ -898,8 +983,106 @@ Guardar
 `);
 }
 
-function guardarCliente(){
+async function guardarCliente(){
+ async function verCliente(id){
 
+    const { data: cliente, error } = await supabaseClient
+        .from("clients")
+        .select(`
+            id,
+            name,
+            phone,
+            email,
+            notes,
+            vehicles(
+                id,
+                brand,
+                model,
+                plate,
+                color
+            )
+        `)
+        .eq("id", id)
+        .single();
+
+    if(error){
+        alert("No se pudo abrir el cliente: " + error.message);
+        return;
+    }
+
+    modal(`
+        <h2>${cliente.name}</h2>
+
+        <p>
+            <b>WhatsApp:</b>
+            ${cliente.phone || "Sin teléfono"}
+        </p>
+
+        <p>
+            <b>Email:</b>
+            ${cliente.email || "Sin email"}
+        </p>
+
+        <p>
+            <b>Vehículos:</b>
+            ${cliente.vehicles.length}
+        </p>
+
+        ${cliente.vehicles.length ? `
+            <hr>
+
+            ${cliente.vehicles.map(v => `
+                <p>
+                    🚗 <b>${v.brand || ""} ${v.model || ""}</b><br>
+                    <span class="muted">
+                        ${v.plate || "Sin patente"}
+                    </span>
+                </p>
+            `).join("")}
+        ` : `
+            <p class="muted">
+                Este cliente todavía no tiene vehículos.
+            </p>
+        `}
+
+        <div class="modal-actions">
+            <button
+                class="secondary"
+                onclick="cerrarModal()">
+                Cerrar
+            </button>
+        </div>
+    `);
+}
+
+    const nombre =
+        document.getElementById("nombreCliente").value.trim();
+
+    const telefono =
+        document.getElementById("telefonoCliente").value.trim();
+
+    if(!nombre){
+        alert("Ingresá el nombre del cliente.");
+        return;
+    }
+
+    const { error } = await supabaseClient
+        .from("clients")
+        .insert({
+            name: nombre,
+            phone: telefono
+        });
+
+    if(error){
+        console.error(error);
+        alert("No se pudo guardar el cliente: " + error.message);
+        return;
+    }
+
+    cerrarModal();
+
+    await clientesPage();
+}
 let nombre=document.getElementById("nombreCliente").value;
 
 if(!nombre){
