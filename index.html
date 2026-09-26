@@ -603,9 +603,10 @@ encabezado("Configuración")+
 <p class="muted">Usuarios y permisos</p>
 </div>
 
-<div class="card">
+<div class="card" onclick="serviciosPage()" style="cursor:pointer">
 <h3>🧽 Servicios</h3>
 <p class="muted">Precios y duración</p>
+<button class="secondary">Administrar servicios</button>
 </div>
 
 <div class="card">
@@ -617,7 +618,240 @@ encabezado("Configuración")+
 `;
 }
 
+// ==========================================
+// SERVICIOS Y PRECIOS - SUPABASE
+// ==========================================
 
+async function serviciosPage() {
+
+    document.getElementById("app").innerHTML =
+        encabezado(
+            "Servicios y precios",
+            `<button class="primary" onclick="nuevoServicio()">+ Nuevo servicio</button>`
+        ) +
+        `<div class="box">
+            <p class="muted">Cargando servicios...</p>
+        </div>`;
+
+    const { data, error } = await supabaseClient
+        .from("services")
+        .select("*")
+        .order("name");
+
+    if (error) {
+        console.error(error);
+
+        document.getElementById("app").innerHTML =
+            encabezado("Servicios y precios") +
+            `<div class="box">
+                <b>No se pudieron cargar los servicios.</b>
+                <p class="muted">${error.message}</p>
+            </div>`;
+        return;
+    }
+
+    document.getElementById("app").innerHTML =
+        encabezado(
+            "Servicios y precios",
+            `<button class="primary" onclick="nuevoServicio()">+ Nuevo servicio</button>`
+        ) +
+        `
+        <div class="box">
+        <table>
+        <thead>
+            <tr>
+                <th>Servicio</th>
+                <th>Precio</th>
+                <th>Duración</th>
+                <th>Estado</th>
+                <th></th>
+            </tr>
+        </thead>
+
+        <tbody>
+        ${data.map(s => `
+            <tr>
+                <td>
+                    <b>${s.name}</b>
+                    <div class="muted">${s.description || ""}</div>
+                </td>
+
+                <td><b>${dinero(Number(s.price))}</b></td>
+
+                <td>${s.duration_minutes || 0} min</td>
+
+                <td>
+                    <span class="status">
+                        ${s.active ? "Activo" : "Inactivo"}
+                    </span>
+                </td>
+
+                <td>
+                    <button
+                        class="secondary"
+                        onclick="editarServicio(
+                            '${s.id}',
+                            '${escaparTexto(s.name)}',
+                            '${escaparTexto(s.description || "")}',
+                            ${Number(s.price)},
+                            ${Number(s.duration_minutes || 0)},
+                            ${s.active}
+                        )">
+                        Editar
+                    </button>
+                </td>
+            </tr>
+        `).join("")}
+        </tbody>
+
+        </table>
+        </div>
+        `;
+}
+
+
+function escaparTexto(texto) {
+    return String(texto)
+        .replace(/\\/g, "\\\\")
+        .replace(/'/g, "\\'");
+}
+
+
+function nuevoServicio() {
+
+    modal(`
+        <h2>Nuevo servicio</h2>
+
+        <label>Nombre</label>
+        <input id="servicioNombre" placeholder="Ej. Lavado premium">
+
+        <label>Descripción</label>
+        <input id="servicioDescripcion" placeholder="Ej. Exterior + interior">
+
+        <label>Precio</label>
+        <input id="servicioPrecio" type="number" min="0" placeholder="Ej. 15000">
+
+        <label>Duración aproximada (minutos)</label>
+        <input id="servicioDuracion" type="number" min="0" value="60">
+
+        <div class="modal-actions">
+            <button class="secondary" onclick="cerrarModal()">Cancelar</button>
+            <button class="primary" onclick="guardarServicio()">Guardar</button>
+        </div>
+    `);
+}
+
+
+async function guardarServicio() {
+
+    const nombre =
+        document.getElementById("servicioNombre").value.trim();
+
+    const descripcion =
+        document.getElementById("servicioDescripcion").value.trim();
+
+    const precio =
+        Number(document.getElementById("servicioPrecio").value);
+
+    const duracion =
+        Number(document.getElementById("servicioDuracion").value);
+
+    if (!nombre) {
+        alert("Ingresá el nombre del servicio.");
+        return;
+    }
+
+    if (precio < 0) {
+        alert("Ingresá un precio válido.");
+        return;
+    }
+
+    const { error } = await supabaseClient
+        .from("services")
+        .insert({
+            name: nombre,
+            description: descripcion,
+            price: precio,
+            duration_minutes: duracion,
+            active: true
+        });
+
+    if (error) {
+        console.error(error);
+        alert("No se pudo guardar: " + error.message);
+        return;
+    }
+
+    cerrarModal();
+    serviciosPage();
+}
+
+
+function editarServicio(id, nombre, descripcion, precio, duracion, activo) {
+
+    modal(`
+        <h2>Editar servicio</h2>
+
+        <label>Nombre</label>
+        <input id="editServicioNombre" value="${nombre}">
+
+        <label>Descripción</label>
+        <input id="editServicioDescripcion" value="${descripcion}">
+
+        <label>Precio</label>
+        <input id="editServicioPrecio" type="number" min="0" value="${precio}">
+
+        <label>Duración aproximada (minutos)</label>
+        <input id="editServicioDuracion" type="number" min="0" value="${duracion}">
+
+        <label>Estado</label>
+        <select id="editServicioActivo">
+            <option value="true" ${activo ? "selected" : ""}>Activo</option>
+            <option value="false" ${!activo ? "selected" : ""}>Inactivo</option>
+        </select>
+
+        <div class="modal-actions">
+            <button class="secondary" onclick="cerrarModal()">Cancelar</button>
+
+            <button
+                class="primary"
+                onclick="actualizarServicio('${id}')">
+                Guardar cambios
+            </button>
+        </div>
+    `);
+}
+
+
+async function actualizarServicio(id) {
+
+    const cambios = {
+        name: document.getElementById("editServicioNombre").value.trim(),
+        description: document.getElementById("editServicioDescripcion").value.trim(),
+        price: Number(document.getElementById("editServicioPrecio").value),
+        duration_minutes: Number(document.getElementById("editServicioDuracion").value),
+        active: document.getElementById("editServicioActivo").value === "true"
+    };
+
+    if (!cambios.name) {
+        alert("Ingresá el nombre del servicio.");
+        return;
+    }
+
+    const { error } = await supabaseClient
+        .from("services")
+        .update(cambios)
+        .eq("id", id);
+
+    if (error) {
+        console.error(error);
+        alert("No se pudo actualizar: " + error.message);
+        return;
+    }
+
+    cerrarModal();
+    serviciosPage();
+}
 /* MODAL */
 
 function modal(contenido){
